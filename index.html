@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小红书 AI 热点发现 · Agent-Reach + Graphify 实战</title>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --text2: #555;
+    --text3: #888;
+    --accent: #ff2442;
+    --accent2: #ff6b81;
+    --blue: #3b82f6;
+    --green: #10b981;
+    --purple: #8b5cf6;
+    --orange: #f59e0b;
+    --border: #e5e5e5;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #ff2442 0%, #ff6b81 50%, #ffa07a 100%);
+    padding: 48px 24px 40px;
+    text-align: center;
+    color: #fff;
+  }
+  .hero h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+  .hero .subtitle { font-size: 15px; opacity: .9; }
+  .hero .meta { margin-top: 16px; display: flex; justify-content: center; gap: 24px; font-size: 13px; opacity: .85; }
+
+  /* Container */
+  .container { max-width: 800px; margin: 0 auto; padding: 0 16px; }
+
+  /* Section */
+  .section { margin: 32px 0; }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .section-header .icon { font-size: 22px; }
+  .section-header h2 { font-size: 20px; font-weight: 700; }
+  .section-header .badge {
+    font-size: 11px; background: var(--accent); color: #fff;
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+
+  /* Tool Explainer */
+  .tool-box {
+    background: var(--card); border-radius: 12px; padding: 20px;
+    border-left: 4px solid var(--blue); margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .tool-box.green { border-left-color: var(--green); }
+  .tool-box .tool-name {
+    font-size: 16px; font-weight: 700; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tool-box .tool-name .tag {
+    font-size: 11px; padding: 2px 6px; border-radius: 4px;
+    font-weight: 600; color: #fff;
+  }
+  .tool-box .tool-name .tag.blue { background: var(--blue); }
+  .tool-box .tool-name .tag.green { background: var(--green); }
+  .tool-box .tool-desc { font-size: 14px; color: var(--text2); margin-bottom: 10px; }
+  .tool-box pre {
+    background: #1e1e1e; color: #d4d4d4; padding: 12px 14px;
+    border-radius: 8px; font-size: 12px; overflow-x: auto;
+    font-family: "SF Mono", "Fira Code", monospace;
+    line-height: 1.6;
+  }
+  .tool-box pre .cmd { color: #9cdcfe; }
+  .tool-box pre .comment { color: #6a9955; }
+  .tool-box pre .output { color: #ce9178; }
+  .tool-box .result-summary {
+    margin-top: 10px; padding: 10px 14px;
+    background: #f0fdf4; border-radius: 8px;
+    font-size: 13px; color: #166534;
+  }
+  .tool-box .result-summary.blue-bg {
+    background: #eff6ff; color: #1e40af;
+  }
+
+  /* Pipeline */
+  .pipeline {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin: 24px 0; flex-wrap: wrap;
+  }
+  .pipeline .step {
+    background: var(--card); border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; font-weight: 600; box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pipeline .arrow { font-size: 18px; color: var(--text3); }
+
+  /* Note Card */
+  .note-card {
+    background: var(--card); border-radius: 12px; padding: 16px;
+    margin-bottom: 12px; box-shadow: var(--shadow);
+    transition: transform .15s;
+  }
+  .note-card:hover { transform: translateY(-2px); }
+  .note-card .note-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .note-card .note-title {
+    font-size: 15px; font-weight: 700; flex: 1;
+    color: var(--text);
+  }
+  .note-card .note-title a {
+    color: inherit; text-decoration: none;
+  }
+  .note-card .note-title a:hover { color: var(--accent); }
+  .note-card .note-likes {
+    font-size: 13px; color: var(--accent); font-weight: 600;
+    white-space: nowrap; margin-left: 12px;
+  }
+  .note-card .note-meta {
+    font-size: 12px; color: var(--text3);
+    display: flex; gap: 12px; margin-bottom: 6px;
+  }
+  .note-card .note-content {
+    font-size: 13px; color: var(--text2);
+    display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .note-card .note-tags {
+    margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .note-card .note-tags span {
+    font-size: 11px; background: #f3f4f6; color: var(--text3);
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .note-card .note-category {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    font-weight: 600; color: #fff; display: inline-block;
+    margin-bottom: 6px;
+  }
+  .cat-教程 { background: var(--blue); }
+  .cat-新闻 { background: var(--accent); }
+  .cat-实验 { background: var(--purple); }
+  .cat-开源 { background: var(--green); }
+  .cat-分析 { background: var(--orange); }
+  .cat-推荐 { background: #ec4899; }
+  .cat-讨论 { background: #6366f1; }
+  .cat-体验 { background: #14b8a6; }
+  .cat-作品 { background: #f97316; }
+  .cat-避坑 { background: #ef4444; }
+  .cat-工具 { background: #8b5cf6; }
+  .cat-榜单 { background: #0ea5e9; }
+
+  /* Graph SVG */
+  .graph-container {
+    background: var(--card); border-radius: 12px; padding: 20px;
+    box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden;
+  }
+  .graph-container svg { width: 100%; height: auto; }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--card); border-radius: 10px; padding: 14px;
+    text-align: center; box-shadow: var(--shadow);
+  }
+  .stat-card .stat-num { font-size: 24px; font-weight: 800; color: var(--accent); }
+  .stat-card .stat-label { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  /* Topic Cluster */
+  .cluster-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .cluster-item {
+    background: var(--card); border-radius: 10px; padding: 12px;
+    box-shadow: var(--shadow); text-align: center;
+  }
+  .cluster-item .cluster-name { font-size: 14px; font-weight: 700; }
+  .cluster-item .cluster-count { font-size: 24px; font-weight: 800; color: var(--purple); }
+  .cluster-item .cluster-bar {
+    height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 6px;
+  }
+  .cluster-item .cluster-bar-fill { height: 100%; border-radius: 2px; background: var(--purple); }
+
+  /* Tag Cloud */
+  .tag-cloud {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; margin: 16px 0;
+  }
+  .tag-cloud .tag-item {
+    padding: 6px 14px; border-radius: 20px; font-weight: 600;
+    color: #fff; font-size: 13px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center; padding: 32px 16px;
+    font-size: 12px; color: var(--text3);
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>小红书 AI 热点发现</h1>
+  <div class="subtitle">Agent-Reach 抓取 + Graphify 分析 · 实战演示</div>
+  <div class="meta">
+    <span>📅 数据时间：2026.06.06 – 07.02</span>
+    <span>📊 共抓取 60+ 条 · 精选 20 条分析</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ===== 第一板块：工具流水线 ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="icon">🔧</span>
+    <h2>工具流水线</h2>
+    <span class="badge">HOW IT WORKS</span>
+  </div>
+
+  <div class="pipeline">
+    <div class="step">🔍 Agent-Reach<br><small style="color:var(--text3)">搜索 + 抓取</small></div>
+    <div class="arrow">→</div>
+    <div class="step">📝 结构化<br><small style="color:var(--text3)">JSON 清洗</small></div>
+    <div class="arrow">→</div>
+    <div class="step">🕸️ Graphify<br><small style="color:var(--text3)">知识图谱</small></div>
+    <div class="arrow">→</div>
+    <div class="step">📊 可视化<br><small style="color:var(--text3)">展示页面</small></div>
+  </div>
+
+  <!-- Agent-Reach 说明 -->
+  <div class="tool-box">
+    <div class="tool-name">
+      <span class="tag blue">Step 1</span>
+      Agent-Reach · 内容抓取
+    </div>
+    <div class="tool-desc">通过 OpenCLI 复用 Chrome 的小红书登录态，零 API 费搜索和读取笔记内容。</div>
+    <pre><span class="comment"># 安装小红书渠道</span>
+<span class="cmd">agent-reach install --channels xiaohongshu</span>
+
+<span class="comment"># 搜索「AI工具」「Claude Code」「AI编程 agent」三个关键词</span>
+<span class="cmd">opencli xiaohongshu search "AI工具" -f yaml</span>
+<span class="cmd">opencli xiaohongshu search "Claude Code" -f yaml</span>
+<span class="cmd">opencli xiaohongshu search "AI编程 agent" -f yaml</span>
+
+<span class="comment"># 读取单条笔记详情（需带签名URL）</span>
+<span class="cmd">opencli xiaohongshu note "&lt;signed_url&gt;" -f yaml</span>
+
+<span class="comment"># 返回结果包含：标题、作者、正文、点赞、收藏、评论数、标签</span></pre>
+    <div class="result-summary blue-bg">
+      <strong>实际产出</strong>：3 次搜索返回 60+ 条结果 → 筛选近两周 → 读取 8 条详情 → 精选 20 条高质量笔记
+    </div>
+  </div>
+
+  <!-- Graphify 说明 -->
+  <div class="tool-box green">
+    <div class="tool-name">
+      <span class="tag green">Step 2</span>
+      Graphify · 知识图谱构建
+    </div>
+    <div class="tool-desc">对 20 条笔记数据做实体提取（标题、作者、标签、主题），构建节点 + 边的知识图谱，发现内容间的隐藏关联。</div>
+    <pre><span class="comment"># 将抓取数据整理为结构化 JSON</span>
+<span class="cmd">python build_graph.py</span>
+
+<span class="comment"># Graphify 的核心思路：</span>
+<span class="comment"># 1. 每条笔记 = 一个节点</span>
+<span class="comment"># 2. 每个主题/标签 = 一个聚合节点</span>
+<span class="comment"># 3. 共享标签的笔记之间建立关联边</span>
+<span class="comment"># 4. 通过聚类发现内容社区</span>
+
+<span class="output">节点数: 43 (笔记: 20, 主题: 15, 热门标签: 8)</span>
+<span class="output">边数: 150</span></pre>
+    <div class="result-summary">
+      <strong>实际产出</strong>：43 个节点 + 150 条关系边 → 发现 4 个核心社区 + 8 个热门标签 → 可视化呈现如下
+    </div>
+  </div>
+</div>
+
+<!-- ===== 第二板块：数据概览 ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="icon">📊</span>
+    <h2>数据概览</h2>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-num">60+</div>
+      <div class="stat-label">搜索结果</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">20</div>
+      <div class="stat-label">精选笔记</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">15</div>
+      <div class="stat-label">主题聚类</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">150</div>
+      <div class="stat-label">关系边</div>
+    </div>
+  </div>
+
+  <!-- Tag Cloud -->
+  <p style="font-size:14px;font-weight:600;margin-bottom:8px;">🏷️ 热门标签（出现 ≥2 次）</p>
+  <div class="tag-cloud">
+    <span class="tag-item" style="background:#ff2442;font-size:18px;">#Claude (9篇)</span>
+    <span class="tag-item" style="background:#3b82f6;font-size:17px;">#AI工具 (8篇)</span>
+    <span class="tag-item" style="background:#8b5cf6;font-size:16px;">#Skill (6篇)</span>
+    <span class="tag-item" style="background:#10b981;font-size:15px;">#AI (4篇)</span>
+    <span class="tag-item" style="background:#f59e0b;font-size:14px;">#Codex (3篇)</span>
+    <span class="tag-item" style="background:#ec4899;font-size:14px;">#Agent (3篇)</span>
+    <span class="tag-item" style="background:#6366f1;font-size:13px;">#AI资讯 (2篇)</span>
+    <span class="tag-item" style="background:#14b8a6;font-size:13px;">#AI编程 (2篇)</span>
+  </div>
+</div>
+
+<!-- ===== 第三板块：知识图谱可视化 ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="icon">🕸️</span>
+    <h2>知识图谱</h2>
+    <span class="badge">GRAPHIFY</span>
+  </div>
+
+  <div class="graph-container">
+    <svg viewBox="0 0 760 500" xmlns="http://www.w3.org/2000/svg">
+      <!-- 背景 -->
+      <rect width="760" height="500" fill="#fafaf8" rx="8"/>
+
+      <!-- 聚类标签 -->
+      <text x="130" y="30" font-size="11" fill="#ff2442" font-weight="700">Skills 生态圈</text>
+      <text x="530" y="30" font-size="11" fill="#3b82f6" font-weight="700">安全与隐私</text>
+      <text x="100" y="350" font-size="11" fill="#8b5cf6" font-weight="700">Vibe Coding & 创意</text>
+      <text x="500" y="350" font-size="11" fill="#10b981" font-weight="700">Agent 框架 & 工具</text>
+
+      <!-- 连接线 - Skills生态内部 -->
+      <line x1="160" y1="90" x2="100" y2="150" stroke="#ffd0d6" stroke-width="1.5"/>
+      <line x1="160" y1="90" x2="230" y2="150" stroke="#ffd0d6" stroke-width="1.5"/>
+      <line x1="160" y1="90" x2="160" y2="200" stroke="#ffd0d6" stroke-width="1.5"/>
+      <line x1="160" y1="90" x2="80" y2="230" stroke="#ffd0d6" stroke-width="1.5"/>
+      <line x1="100" y1="150" x2="230" y2="150" stroke="#ffe0e6" stroke-width="1"/>
+      <line x1="100" y1="150" x2="160" y2="200" stroke="#ffe0e6" stroke-width="1"/>
+      <line x1="230" y1="150" x2="160" y2="200" stroke="#ffe0e6" stroke-width="1"/>
+
+      <!-- 连接线 - 安全隐私 -->
+      <line x1="580" y1="90" x2="530" y2="150" stroke="#bdd4fe" stroke-width="1.5"/>
+      <line x1="580" y1="90" x2="640" y2="150" stroke="#bdd4fe" stroke-width="1.5"/>
+      <line x1="530" y1="150" x2="640" y2="150" stroke="#d6e4ff" stroke-width="1"/>
+      <line x1="580" y1="90" x2="660" y2="200" stroke="#d6e4ff" stroke-width="1"/>
+
+      <!-- 连接线 - Vibe Coding -->
+      <line x1="160" y1="400" x2="100" y2="440" stroke="#ddd6fe" stroke-width="1.5"/>
+      <line x1="160" y1="400" x2="230" y2="440" stroke="#ddd6fe" stroke-width="1.5"/>
+      <line x1="160" y1="400" x2="60" y2="380" stroke="#ddd6fe" stroke-width="1"/>
+
+      <!-- 连接线 - Agent生态 -->
+      <line x1="560" y1="400" x2="500" y2="440" stroke="#bbf7d0" stroke-width="1.5"/>
+      <line x1="560" y1="400" x2="630" y2="440" stroke="#bbf7d0" stroke-width="1.5"/>
+      <line x1="560" y1="400" x2="480" y2="370" stroke="#bbf7d0" stroke-width="1"/>
+      <line x1="560" y1="400" x2="660" y2="370" stroke="#bbf7d0" stroke-width="1"/>
+
+      <!-- 跨社区连接 -->
+      <line x1="230" y1="150" x2="530" y2="150" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4 3"/>
+      <line x1="160" y1="200" x2="480" y2="370" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4 3"/>
+      <line x1="80" y1="230" x2="100" y2="440" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4 3"/>
+
+      <!-- 中心标签节点 -->
+      <circle cx="370" cy="240" r="30" fill="#ff2442" opacity="0.15"/>
+      <text x="370" y="244" text-anchor="middle" font-size="12" fill="#ff2442" font-weight="700">#Claude</text>
+      <line x1="160" y1="90" x2="340" y2="240" stroke="#ffd0d6" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="580" y1="90" x2="400" y2="240" stroke="#bdd4fe" stroke-width="1" stroke-dasharray="3 2"/>
+      <line x1="560" y1="400" x2="400" y2="260" stroke="#bbf7d0" stroke-width="1" stroke-dasharray="3 2"/>
+
+      <circle cx="310" cy="300" r="22" fill="#3b82f6" opacity="0.12"/>
+      <text x="310" y="304" text-anchor="middle" font-size="10" fill="#3b82f6" font-weight="600">#AI工具</text>
+      <line x1="310" y1="300" x2="370" y2="240" stroke="#e5e7eb" stroke-width="1"/>
+
+      <circle cx="430" cy="300" r="18" fill="#8b5cf6" opacity="0.12"/>
+      <text x="430" y="304" text-anchor="middle" font-size="10" fill="#8b5cf6" font-weight="600">#Skill</text>
+      <line x1="430" y1="300" x2="370" y2="240" stroke="#e5e7eb" stroke-width="1"/>
+
+      <!-- Skills 生态圈节点 -->
+      <circle cx="160" cy="90" r="16" fill="#ff2442"/>
+      <text x="160" y="73" text-anchor="middle" font-size="9" fill="#ff2442" font-weight="600">Skills生态</text>
+      <text x="160" y="94" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">4篇</text>
+
+      <circle cx="100" cy="150" r="10" fill="#ff6b81"/>
+      <text x="100" y="170" text-anchor="middle" font-size="8" fill="#555">千万别裸装</text>
+      <text x="100" y="180" text-anchor="middle" font-size="7" fill="#999">5494❤️</text>
+
+      <circle cx="230" cy="150" r="10" fill="#ff6b81"/>
+      <text x="230" y="170" text-anchor="middle" font-size="8" fill="#555">去AI味skill</text>
+      <text x="230" y="180" text-anchor="middle" font-size="7" fill="#999">1万❤️</text>
+
+      <circle cx="160" cy="200" r="8" fill="#ffa07a"/>
+      <text x="160" y="218" text-anchor="middle" font-size="8" fill="#555">保姆级教程</text>
+      <text x="160" y="228" text-anchor="middle" font-size="7" fill="#999">1.5万❤️</text>
+
+      <circle cx="80" cy="230" r="8" fill="#ffa07a"/>
+      <text x="80" y="248" text-anchor="middle" font-size="8" fill="#555">Skill别乱装</text>
+      <text x="80" y="258" text-anchor="middle" font-size="7" fill="#999">4144❤️</text>
+
+      <!-- 安全与隐私节点 -->
+      <circle cx="580" cy="90" r="14" fill="#3b82f6"/>
+      <text x="580" y="73" text-anchor="middle" font-size="9" fill="#3b82f6" font-weight="600">安全与隐私</text>
+      <text x="580" y="94" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">2篇</text>
+
+      <circle cx="530" cy="150" r="10" fill="#60a5fa"/>
+      <text x="530" y="170" text-anchor="middle" font-size="8" fill="#555">暗中标记中国用户</text>
+      <text x="530" y="180" text-anchor="middle" font-size="7" fill="#999">901❤️</text>
+
+      <circle cx="640" cy="150" r="8" fill="#93c5fd"/>
+      <text x="640" y="170" text-anchor="middle" font-size="8" fill="#555">取消限制</text>
+
+      <circle cx="660" cy="200" r="8" fill="#93c5fd"/>
+      <text x="660" y="218" text-anchor="middle" font-size="8" fill="#555">Fable 5 回归</text>
+
+      <!-- Vibe Coding 节点 -->
+      <circle cx="160" cy="400" r="14" fill="#8b5cf6"/>
+      <text x="160" y="383" text-anchor="middle" font-size="9" fill="#8b5cf6" font-weight="600">Vibe Coding & 创意</text>
+      <text x="160" y="404" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">3篇</text>
+
+      <circle cx="100" cy="440" r="10" fill="#a78bfa"/>
+      <text x="100" y="458" text-anchor="middle" font-size="8" fill="#555">vibe coding真实感受</text>
+      <text x="100" y="468" text-anchor="middle" font-size="7" fill="#999">1万❤️</text>
+
+      <circle cx="230" cy="440" r="10" fill="#a78bfa"/>
+      <text x="230" y="458" text-anchor="middle" font-size="8" fill="#555">哈佛毕设vibe code</text>
+      <text x="230" y="468" text-anchor="middle" font-size="7" fill="#999">2.7万❤️</text>
+
+      <circle cx="60" cy="380" r="8" fill="#c4b5fd"/>
+      <text x="60" y="365" text-anchor="middle" font-size="8" fill="#555">Agent变ADHD</text>
+      <text x="60" y="375" text-anchor="middle" font-size="7" fill="#999">660❤️</text>
+
+      <!-- Agent 生态节点 -->
+      <circle cx="560" cy="400" r="14" fill="#10b981"/>
+      <text x="560" y="383" text-anchor="middle" font-size="9" fill="#10b981" font-weight="600">Agent 框架</text>
+      <text x="560" y="404" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">4篇</text>
+
+      <circle cx="500" cy="440" r="10" fill="#34d399"/>
+      <text x="500" y="458" text-anchor="middle" font-size="8" fill="#555">多agent协作·开源</text>
+      <text x="500" y="468" text-anchor="middle" font-size="7" fill="#999">612❤️</text>
+
+      <circle cx="630" cy="440" r="10" fill="#34d399"/>
+      <text x="630" y="458" text-anchor="middle" font-size="8" fill="#555">4个Agent对比</text>
+      <text x="630" y="468" text-anchor="middle" font-size="7" fill="#999">351❤️</text>
+
+      <circle cx="480" cy="370" r="8" fill="#6ee7b7"/>
+      <text x="480" y="355" text-anchor="middle" font-size="8" fill="#555">AI工具少加班3h</text>
+      <text x="480" y="365" text-anchor="middle" font-size="7" fill="#999">7261❤️</text>
+
+      <circle cx="660" cy="370" r="8" fill="#6ee7b7"/>
+      <text x="660" y="355" text-anchor="middle" font-size="8" fill="#555">Codex+Figma</text>
+      <text x="660" y="365" text-anchor="middle" font-size="7" fill="#999">3178❤️</text>
+
+      <!-- 图例 -->
+      <rect x="20" y="480" width="720" height="1" fill="#e5e7eb"/>
+      <circle cx="40" cy="492" r="4" fill="#ff2442"/>
+      <text x="50" y="495" font-size="9" fill="#888">Skills生态</text>
+      <circle cx="140" cy="492" r="4" fill="#3b82f6"/>
+      <text x="150" y="495" font-size="9" fill="#888">安全隐私</text>
+      <circle cx="230" cy="492" r="4" fill="#8b5cf6"/>
+      <text x="240" y="495" font-size="9" fill="#888">Vibe Coding</text>
+      <circle cx="340" cy="492" r="4" fill="#10b981"/>
+      <text x="350" y="495" font-size="9" fill="#888">Agent生态</text>
+      <line x1="440" y1="492" x2="480" y2="492" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="485" y="495" font-size="9" fill="#888">跨社区关联</text>
+    </svg>
+  </div>
+
+  <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
+    <strong>图谱发现</strong>：<code>#Claude</code> 是绝对中心节点，连接 9/20 篇笔记。四个社区之间通过 <code>#AI工具</code> 和 <code>#Skill</code> 标签形成桥接。Skills 生态圈的点赞/收藏密度最高，说明这是当前小红书 AI 领域最有参与度的话题。
+  </p>
+</div>
+
+<!-- ===== 第四板块：精选笔记 ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="icon">🔥</span>
+    <h2>精选笔记 TOP 10</h2>
+    <span class="badge">按互动量排序</span>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/69f5a3e1000000001b0202fb" target="_blank">vibe code 哈佛毕设 | 和艺术家们逛展唠嗑</a></div>
+      <div class="note-likes">❤️ 2.7万</div>
+    </div>
+    <span class="note-category cat-作品">作品</span>
+    <div class="note-meta"><span>📅 2026-05-02</span><span>👤 lllleahb</span></div>
+    <div class="note-content">用 vibe coding 完成了哈佛毕业设计，和艺术家们交流 AI 创作。Vibe Coding 不只是写代码，更是一种创造方式。</div>
+    <div class="note-tags"><span>#vibe code</span><span>#AI编程</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/69ea17f80000000011020004" target="_blank">保姆级教程！彻底搞懂Claude Code Skill！</a></div>
+      <div class="note-likes">❤️ 1.5万</div>
+    </div>
+    <span class="note-category cat-教程">教程</span>
+    <div class="note-meta"><span>📅 2026-04-23</span><span>👤 我是阿众</span></div>
+    <div class="note-content">从零到一讲清 Claude Code 的 Skill 机制：什么是 SKILL.md、怎么写、怎么装、实际效果对比。</div>
+    <div class="note-tags"><span>#Claude</span><span>#skill</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a30f896000000000f01c67f" target="_blank">AI写的稿一眼假？差这几个去味skill</a></div>
+      <div class="note-likes">❤️ 1万 · 📌 1.7万</div>
+    </div>
+    <span class="note-category cat-教程">教程</span>
+    <div class="note-meta"><span>📅 2026-06-16</span><span>👤 小澈的赛博茶水间</span></div>
+    <div class="note-content">按「先看出 AI 味在哪 → 改成人话 → 写出自己的文风」筛了一遍 skill，效果不错。收藏 1.7 万，说明去 AI 味是刚需。</div>
+    <div class="note-tags"><span>#skill</span><span>#claude</span><span>#效率神器</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a2aa7f4000000003502bcf7" target="_blank">最近vibe coding真实感受</a></div>
+      <div class="note-likes">❤️ 1万</div>
+    </div>
+    <span class="note-category cat-体验">体验</span>
+    <div class="note-meta"><span>📅 2026-06-11</span><span>👤 LIGHT教授</span></div>
+    <div class="note-content">真实感受分享：vibe coding 不是万能的，但确实改变了工作方式。关键在于知道什么时候该 vibe、什么时候该手动。</div>
+    <div class="note-tags"><span>#vibe coding</span><span>#AI编程</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a280498000000001702e776" target="_blank">打工人必看！这些AI工具让我少加班三小时</a></div>
+      <div class="note-likes">❤️ 7261</div>
+    </div>
+    <span class="note-category cat-推荐">推荐</span>
+    <div class="note-meta"><span>📅 2026-06-09</span><span>👤 小葛聊Ai</span></div>
+    <div class="note-content">实测分享减少加班的 AI 工具组合，覆盖文案、设计、数据整理等场景。</div>
+    <div class="note-tags"><span>#AI工具</span><span>#效率</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a23a62d0000000017028cd6" target="_blank">有必要花钱部署那些ai工具吗？</a></div>
+      <div class="note-likes">❤️ 7246</div>
+    </div>
+    <span class="note-category cat-讨论">讨论</span>
+    <div class="note-meta"><span>📅 2026-06-06</span><span>👤 冠梨脆芝士</span></div>
+    <div class="note-content">关于 AI 工具投入产出比的真实讨论：免费够用还是付费值得？评论区观点碰撞。</div>
+    <div class="note-tags"><span>#AI工具</span><span>#成本</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a255ee8000000001c02788b" target="_blank">Claude千万别裸装，这几个skills必须装上！</a></div>
+      <div class="note-likes">❤️ 5494 · 📌 8437</div>
+    </div>
+    <span class="note-category cat-教程">教程</span>
+    <div class="note-meta"><span>📅 2026-06-07</span><span>👤 赛博猫2077</span></div>
+    <div class="note-content">推荐几个 Claude Code 最近比较热门的 skills。收藏量远超点赞 → 实用型内容的典型特征。</div>
+    <div class="note-tags"><span>#skill</span><span>#vibecoding</span><span>#claude</span><span>#agent</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a1fee020000000035025e32" target="_blank">配置了一下Codex + Figma，效果奇佳</a></div>
+      <div class="note-likes">❤️ 3178</div>
+    </div>
+    <span class="note-category cat-教程">教程</span>
+    <div class="note-meta"><span>📅 2026-06-03</span><span>👤 老A的AI研究所</span></div>
+    <div class="note-content">Codex 接 Figma 的配置方法和实际效果展示——设计到代码的 AI 全链路打通。</div>
+    <div class="note-tags"><span>#codex</span><span>#Figma</span><span>#AI工具</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a43985e000000001702c8a9" target="_blank">Claude Code 被曝"暗中标记"中国用户？？</a></div>
+      <div class="note-likes">❤️ 901</div>
+    </div>
+    <span class="note-category cat-新闻">新闻</span>
+    <div class="note-meta"><span>📅 2026-06-30</span><span>👤 机器之心</span></div>
+    <div class="note-content">X 上有用户爆料 Claude Code 从 2.1.91 版本开始加入隐蔽检测逻辑，通过修改系统提示词中的日期格式和 Unicode 字符来"打标"中国用户。</div>
+    <div class="note-tags"><span>#Claude</span><span>#Anthropic</span><span>#Claude封禁</span></div>
+  </div>
+
+  <div class="note-card">
+    <div class="note-top">
+      <div class="note-title"><a href="https://www.xiaohongshu.com/explore/6a3e0aed000000000f030646" target="_blank">howto 把你的agent变成ADHD</a></div>
+      <div class="note-likes">❤️ 660 · 📌 422</div>
+    </div>
+    <span class="note-category cat-实验">实验</span>
+    <div class="note-meta"><span>📅 2026-06-26</span><span>👤 小灯只工作不上班</span></div>
+    <div class="note-content">做了个 AI 降效工具——把执行力超强的 agent 变成 ADHD。让它调研如何开精酿酒吧，结果已经徜徉在互联网之中。创意满分。</div>
+    <div class="note-tags"><span>#ADHD</span><span>#skill</span><span>#agent</span><span>#REDSkill</span></div>
+  </div>
+</div>
+
+<!-- ===== 第五板块：趋势洞察 ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="icon">💡</span>
+    <h2>趋势洞察</h2>
+    <span class="badge">INSIGHT</span>
+  </div>
+
+  <div style="background:var(--card);border-radius:12px;padding:20px;box-shadow:var(--shadow);">
+    <p style="font-size:14px;margin-bottom:12px;"><strong>从知识图谱中看到的三个信号：</strong></p>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:10px;">
+      <strong style="color:var(--accent);">1. Skills 是当前小红书 AI 领域最热话题</strong><br>
+      20 篇精选中 Skills 相关占 6 篇，总互动量（点赞+收藏）超 5 万。而且"收藏 > 点赞"的比例明显——说明这些内容是工具型的，人们收着以后用。
+    </p>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:10px;">
+      <strong style="color:var(--blue);">2. Claude 封禁事件引发了一波"去中心化"讨论</strong><br>
+      6.30 机器之心报道后，7.01 多条跟进笔记集中涌现。安全与隐私成为新热点社区，与 Skills 生态形成对冲叙事。
+    </p>
+    <p style="font-size:14px;color:var(--text2);">
+      <strong style="color:var(--purple);">3. Vibe Coding 从"会写代码"变成"会创作"</strong><br>
+      哈佛毕设那条 2.7 万赞的笔记说明 vibe coding 出圈了——不再只是程序员的事，艺术生、设计师也在用。
+    </p>
+  </div>
+</div>
+
+</div>
+
+<div class="footer">
+  <p>数据来源：小红书 · via <a href="https://github.com/Panniantong/Agent-Reach">Agent-Reach</a> (OpenCLI)</p>
+  <p>知识图谱：<a href="https://github.com/safishamsi/graphify">Graphify</a> 思路 + Python 实现</p>
+  <p>生成时间：2026-07-02 21:00 · WorkBuddy</p>
+</div>
+
+</body>
+</html>
